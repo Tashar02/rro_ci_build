@@ -1,0 +1,120 @@
+name: Build CertifiedPropsOverlay
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          sdkmanager "platform-tools"
+          sdkmanager "build-tools;35.0.0"
+          sdkmanager "platforms;android-36"
+
+      - name: Clone YAAP vendor repo
+        run: |
+          git clone --depth=1 \
+            https://github.com/yaap/vendor_yaap.git
+
+      - name: Clone private cert repo
+        run: |
+          git clone --depth=1 \
+            https://${{ secrets.CERTS_TOKEN }}@github.com/sarthakroy2002/platform_android-certs.git certs
+
+      - name: Convert AOSP releasekey to keystore
+        run: |
+          openssl pkcs8 \
+            -inform DER \
+            -nocrypt \
+            -in certs/releasekey.pk8 \
+            -out releasekey.pem
+
+          openssl pkcs12 -export \
+            -in certs/releasekey.x509.pem \
+            -inkey releasekey.pem \
+            -out releasekey.p12 \
+            -password pass:android \
+            -name releasekey
+
+          keytool -importkeystore \
+            -deststorepass android \
+            -destkeypass android \
+            -destkeystore releasekey.jks \
+            -srckeystore releasekey.p12 \
+            -srcstoretype PKCS12 \
+            -srcstorepass android \
+            -alias releasekey
+
+      - name: Build overlay APK
+        run: |
+          cd vendor_yaap/overlay/CertifiedPropsOverlay
+
+          mkdir -p compiled out
+
+          $ANDROID_HOME/build-tools/35.0.0/aapt2 compile \
+            --dir res \
+            -o compiled
+
+          $ANDROID_HOME/build-tools/35.0.0/aapt2 link \
+            -o out/CertifiedPropsOverlay-unsigned.apk \
+            --manifest AndroidManifest.xml \
+            -I $ANDROID_HOME/platforms/android-36/android.jar \
+            --auto-add-overlay \
+            compiled/*.flat
+
+      - name: Zipalign APK
+        run: |
+          $ANDROID_HOME/build-tools/35.0.0/zipalign -f 4 \
+            vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-unsigned.apk \
+            vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-aligned.apk
+
+      - name: Sign APK
+        run: |
+          $ANDROID_HOME/build-tools/35.0.0/apksigner sign \
+            --ks releasekey.jks \
+            --ks-key-alias releasekey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay.apk \
+            vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-aligned.apk
+
+      - name: Verify APK
+        run: |
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify -v \
+            vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CertifiedPropsOverlay
+          path: vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay.apk
+
+      - name: Generate release tag
+        id: tag
+        run: |
+          echo "tag=v$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: CertifiedPropsOverlay ${{ steps.tag.outputs.tag }}
+          files: |
+            vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.CERTS_TOKEN }}
