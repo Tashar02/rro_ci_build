@@ -6,7 +6,7 @@ on:
     - cron: '0 * * * *'
 
 env:
-  GH_USERNAME: sarthakroy2002
+  GH_USERNAME: Tashar02
 
 permissions:
   contents: write
@@ -26,7 +26,7 @@ jobs:
           set -euo pipefail
 
           latestver=$(curl -fsSL https://github.com/yaap/vendor_yaap/raw/sixteen/overlay/CertifiedPropsOverlay/AndroidManifest.xml | grep -oP 'versionName="\K[^"]+')
-          currentver=$(curl -fsSL https://github.com/yaap/ota-info/raw/full-signed/cancunf/cert.json | jq -r '.version')
+          currentver=$(curl -fsSL https://github.com/Tashar02/yaap_ota-info/raw/full-signed/redwood/cert.json | jq -r '.version')
 
           echo "latest_ver=${latestver}" >> "$GITHUB_OUTPUT"
           echo "current_ver=${currentver}" >> "$GITHUB_OUTPUT"
@@ -77,13 +77,9 @@ jobs:
         env:
           GMS_CERT_PRIV: ${{ secrets.GMS_CERT_PRIV }}
           GMS_CERT_PUB: ${{ secrets.GMS_CERT_PUB }}
-          VANILLA_CERT_PRIV: ${{ secrets.VANILLA_CERT_PRIV }}
-          VANILLA_CERT_PUB: ${{ secrets.VANILLA_CERT_PUB }}
         run: |
           printf '%s' "$GMS_CERT_PRIV" | base64 -d > releasekey_gms.pk8
           printf '%s\n' "$GMS_CERT_PUB" > releasekey_gms.x509.pem
-          printf '%s' "$VANILLA_CERT_PRIV" | base64 -d > releasekey_vanilla.pk8
-          printf '%s\n' "$VANILLA_CERT_PUB" > releasekey_vanilla.x509.pem
 
       - name: Build overlay APK
         run: |
@@ -118,19 +114,10 @@ jobs:
             --out vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-gms.apk \
             vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-aligned.apk
 
-          $ANDROID_HOME/build-tools/35.0.0/apksigner sign \
-            --key releasekey_vanilla.pk8 \
-            --cert releasekey_vanilla.x509.pem \
-            --out vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-vanilla.apk \
-            vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-aligned.apk
-
       - name: Verify APK
         run: |
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify -v \
             vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-gms.apk
-
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify -v \
-            vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-vanilla.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -138,7 +125,6 @@ jobs:
           name: CertifiedPropsOverlay
           path: |
             vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-gms.apk
-            vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-vanilla.apk
 
       - name: Generate release tag
         id: tag
@@ -152,7 +138,6 @@ jobs:
           name: CertifiedPropsOverlay ${{ steps.tag.outputs.tag }}
           files: |
             vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-gms.apk
-            vendor_yaap/overlay/CertifiedPropsOverlay/out/CertifiedPropsOverlay-vanilla.apk
         env:
           GITHUB_TOKEN: ${{ secrets.CERTS_TOKEN }}
 
@@ -173,39 +158,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          git config --global user.name "Sarthak Roy"
-          git config --global user.email "sarthakroy2002@gmail.com"
+          git config --global user.name "Tashfin Shakeer Rhythm"
+          git config --global user.email "tashfinshakeerrhythm@gmail.com"
 
-          git clone "https://${GH_USERNAME}:${{ secrets.CERTS_TOKEN }}@github.com/yaap/ota-info.git"
+          git clone "https://${GH_USERNAME}:${{ secrets.CERTS_TOKEN }}@github.com/Tashar02/yaap_ota-info.git"
 
-          cp artifacts/CertifiedPropsOverlay-gms.apk ota-info/cancunf/cert.apk
-          cp artifacts/CertifiedPropsOverlay-vanilla.apk ota-info/sunny/cert.apk
+          cp artifacts/CertifiedPropsOverlay-gms.apk yaap_ota-info/redwood/cert.apk
 
-          sed -i -E "s/(\"version\": )[0-9.]+/\1$LATEST_VER/" ota-info/cancunf/cert.json
-          sed -i -E "s/(\"version\": )[0-9.]+/\1$LATEST_VER/" ota-info/sunny/cert.json
+          sed -i -E "s/(\"version\": )[0-9.]+/\1$LATEST_VER/" yaap_ota-info/redwood/cert.json
 
-          cd ota-info
+          cd yaap_ota-info
 
-          git add cancunf
-          git commit -m "cancunf: Update certified fingerprint"
-          git push origin HEAD
-
-          git add sunny
-          git commit -m "sunny: Update certified fingerprint"
-          git push origin HEAD
-
-          git checkout vanilla-signed
-
-          cp ../artifacts/CertifiedPropsOverlay-vanilla.apk cancunf/cert.apk
-          cp ../artifacts/CertifiedPropsOverlay-vanilla.apk sunny/cert.apk
-
-          sed -i -E "s/(\"version\": )[0-9.]+/\1$LATEST_VER/" cancunf/cert.json
-          sed -i -E "s/(\"version\": )[0-9.]+/\1$LATEST_VER/" sunny/cert.json
-
-          git add cancunf
-          git commit -m "cancunf: Update certified fingerprint"
-          git push origin HEAD
-
-          git add sunny
-          git commit -m "sunny: Update certified fingerprint"
+          git add redwood
+          git commit -m "redwood: Update certified fingerprint APK"
           git push origin HEAD
