@@ -141,6 +141,32 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.CERTS_TOKEN }}
 
+      - name: Notify Telegram
+        env:
+          TG_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHANNEL_ID }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          VERSION: ${{ needs.check-version.outputs.latest_ver }}
+        run: |
+          set -euo pipefail
+
+          APK_URL="https://github.com/Tashar02/rro_ci_build/releases/download/${TAG}/CertifiedPropsOverlay-gms.apk"
+
+          MESSAGE=$(cat <<EOF
+          <b>New Cert update available!</b>
+          <b>Version:</b> <code>${VERSION}</code>
+
+          YAAP users can fetch and update their CertifiedPropsOverlay.apk from YAAP Updater or <a href="${APK_URL}">here</a> to pass basic integrity.
+
+          EOF
+          )
+
+          curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT_ID}" \
+            -d parse_mode=HTML \
+            -d disable_web_page_preview=true \
+            --data-urlencode text="${MESSAGE}"
+
   push:
     needs: [check-version, build]
     if: ${{ needs.check-version.outputs.should_push == 'true' }}
