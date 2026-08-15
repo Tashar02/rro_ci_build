@@ -25,7 +25,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          latestver=$(curl -fsSL https://github.com/yaap/vendor_yaap/raw/sixteen/overlay/CertifiedPropsOverlay/AndroidManifest.xml | grep -oP 'versionName="\K[^"]+')
+          latestver=$(curl -fsSL https://github.com/yaap/vendor_yaap/raw/seventeen/overlay/CertifiedPropsOverlay/AndroidManifest.xml | grep -oP 'versionName="\K[^"]+')
           currentver=$(curl -fsSL https://github.com/Tashar02/yaap_ota-info/raw/full-signed/redwood/cert.json | jq -r '.version')
 
           echo "latest_ver=${latestver}" >> "$GITHUB_OUTPUT"
@@ -71,7 +71,7 @@ jobs:
       - name: Clone YAAP vendor repo
         run: |
           git clone --depth=1 \
-            https://github.com/yaap/vendor_yaap.git
+            https://github.com/yaap/vendor_yaap.git -b seventeen
 
       - name: Setup certs
         env:
