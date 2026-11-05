@@ -73,7 +73,7 @@ jobs:
       - name: Clone YAAP vendor repo
         run: |
           git clone --depth=1 \
-            https://github.com/yaap/vendor_yaap.git -b seventeen
+            https://github.com/Tashar02/vendor_yaap.git -b seventeen
 
       - name: Setup certs
         env:
